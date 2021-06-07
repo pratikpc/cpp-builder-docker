@@ -1,0 +1,87 @@
+name: release
+
+on:
+  schedule:
+    - cron: "0 3 1 * *"
+  workflow_dispatch:
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+      - name: Login to GitHub Packages Docker Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push CMake
+        uses: docker/build-push-action@v2
+        with:
+          context: ./cmake
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/cmake:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+
+      - name: Build and push VCPKG
+        uses: docker/build-push-action@v2
+        with:
+          context: ./vcpkg
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/vcpkg:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+
+      - name: Build and push Builder
+        uses: docker/build-push-action@v2
+        with:
+          context: ./build
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/build:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+
+      - name: Build and push CMake Generator
+        uses: docker/build-push-action@v2
+        with:
+          context: ./gen
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/gen:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+
+      - name: Build and push CTest
+        uses: docker/build-push-action@v2
+        with:
+          context: ./ctest
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/ctest:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+
+        # Temp fix
+        # https://github.com/docker/build-push-action/issues/252
+        # https://github.com/moby/buildkit/issues/1896
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
