@@ -1,0 +1,37 @@
+version: "3.7"
+services:
+  cmake:
+    image: ghcr.io/pratikpc/cpp-builder-docker/cmake:latest
+  vcpkg:
+    image: ghcr.io/pratikpc/cpp-builder-docker/vcpkg:latest
+    volumes:
+      - vcpkg:/vcpkg
+  gen:
+    image: ghcr.io/pratikpc/cpp-builder-docker/gen:latest
+    volumes:
+      - vcpkg:/vcpkg
+      - build:/build
+      - ./:/source
+  build:
+    image: ghcr.io/pratikpc/cpp-builder-docker/build:latest
+    volumes:
+      - vcpkg:/vcpkg
+      - build:/build
+      - ./:/source
+  ctest:
+    image: ghcr.io/pratikpc/cpp-builder-docker/ctest:latest
+    volumes:
+      - build:/build
+  execute:
+    image: fedora
+    volumes:
+      - vcpkg:/vcpkg
+      - build:/build
+  run-vcpkg:
+    image: fedora
+    entrypoint: vcpkg/vcpkg
+    volumes:
+      - vcpkg:/vcpkg
+volumes:
+  vcpkg: {}
+  build: {}
